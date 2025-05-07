@@ -80,8 +80,7 @@ with tab1:
         original = st.session_state.analysis_results['original_patched_file_content']
         patched = patch
         if diff_mode == "Unified Text":
-            diff = "
-".join(difflib.unified_diff(
+            diff = "\n".join(difflib.unified_diff(
                 original.splitlines(), patched.splitlines(),
                 fromfile="original", tofile="patched", lineterm=""
             ))
