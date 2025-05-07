@@ -1,0 +1,7 @@
+streamlit
+streamlit-webrtc
+streamlit-ace
+soundfile
+numpy
+requests
+av==10.0.0
