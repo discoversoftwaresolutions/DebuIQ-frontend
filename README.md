@@ -1,5 +1,3 @@
-# Generate a professional, GitHub-ready README.md for the DebugIQ frontend
-readme_content = """
 # 🧠 DebugIQ Front-End
 
 The official Streamlit-based front-end for **DebugIQ**, an open-source autonomous debugging agent powered by GPT-4o and voice interaction. This UI provides trace analysis, code patch generation, QA validation, documentation generation, and an optional voice assistant interface.
