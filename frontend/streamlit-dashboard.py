@@ -9,7 +9,7 @@ import numpy as np
 import av
 import tempfile
 import streamlit.components.v1 as components
-from difflib_html import HtmlDiff
+from difflib import HtmlDiff
 
 # 🌐 BACKEND URL
 BACKEND_URL = os.getenv("BACKEND_URL", "https://autonomous-debug.onrender.com")
