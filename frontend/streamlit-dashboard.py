@@ -3,7 +3,7 @@ import requests
 import os
 import difflib
 from streamlit_ace import st_ace
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, ClientSettings
+from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, ClientSettings, WebRtcMode
 import soundfile as sf
 import numpy as np
 import av
@@ -155,7 +155,7 @@ with st.expander("🎙️ DebugIQ Voice Assistant (Optional)", expanded=False):
 
     ctx = webrtc_streamer(
         key="voice-recorder",
-        mode="sendonly",
+        mode=WebRtcMode.SENDONLY,
         audio_receiver_size=1024,
         client_settings=ClientSettings(media_stream_constraints={"audio": True, "video": False}),
         audio_processor_factory=AudioRecorder
