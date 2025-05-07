@@ -3,7 +3,8 @@ import requests
 import os
 import difflib
 from streamlit_ace import st_ace
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, ClientSettings
+from streamlit_webrtc import webrtc_streamer, AudioProcessorBase
+from streamlit_webrtc.client_settings import ClientSettings
 import soundfile as sf
 import numpy as np
 import av
