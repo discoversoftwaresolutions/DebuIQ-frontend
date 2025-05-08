@@ -5,4 +5,4 @@ requests
 soundfile
 numpy
 av==10.0.0
-diff-match-patch  # instead of difflib-html
+diff-match-patch  
