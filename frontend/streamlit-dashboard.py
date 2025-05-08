@@ -76,7 +76,7 @@ if st.session_state.api_endpoints is None:
 # 🔍 Upload Trace + Code Files
 st.markdown("### Upload Files")
 # Use a unique key for the file uploader to manage its state across reruns
-uploaded_files = st.file_uploader(
+uploaded_files = st.file_uploader()
     "Upload traceback (.txt) and source files (e.g., .py)",
     type=["txt", "py"], # Specify allowed types
     accept_multiple_files=True,
