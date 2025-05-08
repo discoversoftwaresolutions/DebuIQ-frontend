@@ -1,3 +1,4 @@
+# DebugIQ-frontend/streamlit-dashboard.py
 import streamlit as st
 import requests
 import os
@@ -411,3 +412,285 @@ with tab2:
                      if issues and isinstance(issues, list): # Ensure issues is a list
                          # Display each static analysis issue
                          for i in issues:
+                             if isinstance(i, dict): # Ensure issue is a dict
+                                 issue_type = i.get('type', 'Issue')
+                                 line = i.get('line', 'N/A')
+                                 msg = i.get('msg', 'No message')
+                                 st.text(f"{issue_type}: Line {line} - {msg}") # Corrected message format
+                             else:
+                                 st.warning(f"Unexpected format for issue in {file}: {i}")
+                     elif issues is not None: # Handle empty list or non-list if not None
+                          st.info(f"No static analysis issues found for {file}.")
+             else: # Handle if static_analysis_result is not a dict
+                 st.warning(f"Unexpected format for static analysis results: {static_findings}")
+                 st.json(static_findings) # Display raw data if not dict
+        else:
+            st.info("No static analysis results available.")
+    else:
+        st.info("Run 'Patch Analysis' and click 'Run QA on Edited Patch' to see QA results here.")
+
+
+with tab3:
+    st.subheader("Auto-Generated Documentation")
+    # Display the documentation summary obtained from the analysis results
+    doc_summary = st.session_state.analysis_results.get('doc_summary')
+
+    if doc_summary:
+        st.markdown("#### Analysis Summary Documentation")
+        st.markdown(doc_summary) # Use markdown to render the summary
+    else:
+        st.info("No documentation summary available yet. Run analysis first.")
+
+    # --- Optional: Button for More Detailed Docs if Backend Supports ---
+    # doc_url = st.session_state.api_endpoints.get('doc') # Check your config.py route name
+    # if doc_url:
+    #     st.markdown("---")
+    #     st.markdown("#### Generate Detailed Documentation")
+    #     # This button would trigger a call to the /doc endpoint
+    #     if st.button("Generate Detailed Docs for Uploaded Files", key="generate_detailed_docs"):
+    #         if not (current_trace_content or current_source_files_content):
+    #             st.warning("Please upload files first to generate detailed documentation.")
+    #         else:
+    #             with st.spinner("Generating detailed documentation..."):
+    #                 try:
+    #                     # Assuming doc endpoint takes source files content
+    #                     doc_res = requests.post(
+    #                          doc_url,
+    #                          json={"source_files": current_source_files_content},
+    #                          timeout=120
+    #                     )
+    #                     doc_res.raise_for_status()
+    #                     detailed_docs_result = doc_res.json()
+    #                     # Adjust key based on your doc endpoint response, provide default
+    #                     detailed_docs_content = detailed_docs_result.get("docs", "Could not generate detailed documentation.")
+    #                     st.markdown("##### Generated Detailed Documentation")
+    #                     st.markdown(detailed_docs_content) # Display the generated docs
+    #                 except requests.exceptions.Timeout:
+    #                     st.error(f"Detailed docs generation request timed out after {120} seconds.")
+    #                 except requests.exceptions.RequestException as e:
+    #                     st.error(f"Error generating detailed docs: {e}")
+    #                     if e.response:
+    #                         st.text(e.response.text) # Display backend error text
+    #                 except Exception as e:
+    #                     st.error(f"An unexpected error occurred during detailed doc generation: {e}")
+
+
+# 🎙️ DebugIQ Voice Assistant (Optional) Expander
+with st.expander("🎙️ DebugIQ Voice Assistant (Optional)", expanded=False):
+    st.markdown("Note: This section requires your backend's voice endpoints to be functional and correctly configured.")
+
+    # Get voice endpoint URLs from fetched config
+    voice_transcribe_url = st.session_state.api_endpoints.get('voice_transcribe')
+    voice_command_url = st.session_state.api_endpoints.get('voice_command')
+    voice_speak_url = st.session_state.api_endpoints.get('voice_speak')
+
+    # Check if all necessary voice endpoints are available
+    if not (voice_transcribe_url and voice_command_url and voice_speak_url):
+         st.warning("Voice assistant endpoints are not configured in the backend API configuration. Please check your backend's `/api/config` output.")
+         st.markdown("---") # Add a separator if voice is not configured
+    else:
+        # --- Voice Command File Upload ---
+        st.markdown("#### Upload Voice Command")
+        audio_file_uploader = st.file_uploader(
+            "Upload voice command (.wav)",
+            type=["wav"], # Accept WAV files
+            key="voice_uploader" # Unique key
+        )
+
+        if audio_file_uploader:
+            st.audio(audio_file_uploader, format="audio/wav", key="uploaded_audio_player") # Display uploaded audio
+
+            # Prepare file for request
+            # GetValue() reads the file content. Ensure filename and content type are correct.
+            files = {"file": ("voice_command.wav", audio_file_uploader.getvalue(), "audio/wav")}
+
+            with st.spinner("Transcribing uploaded audio..."):
+                try:
+                    # Make the POST request to the backend transcribe endpoint
+                    transcribe_res = requests.post(voice_transcribe_url, files=files, timeout=120) # Increased timeout
+                    transcribe_res.raise_for_status() # Raise HTTPError for bad responses
+
+                    transcript = transcribe_res.json().get("transcript", "")
+
+                    if transcript:
+                        st.success(f"🧠 You said: `{transcript}`")
+
+                        # --- Process Transcribed Command ---
+                        with st.spinner("Processing command..."):
+                            try:
+                                # Make the POST request to the backend command endpoint
+                                command_res = requests.post(voice_command_url, json={"text_command": transcript}, timeout=120) # Increased timeout
+                                command_res.raise_for_status() # Raise HTTPError for bad responses
+
+                                reply = command_res.json().get("spoken_text", "No response provided by the command agent.")
+
+                                if reply and reply != "No response provided by the command agent.":
+                                     st.markdown(f"🔁 Response: `{reply}`")
+
+                                     # --- Synthesize and Play Response ---
+                                     with st.spinner("Synthesizing speech response..."):
+                                         try:
+                                             # Make the POST request to the backend speak endpoint
+                                             # Timeout might be longer for synthesis
+                                             speak_res = requests.post(voice_speak_url, json={"text_command": reply}, timeout=180) # Increased timeout
+                                             speak_res.raise_for_status() # Raise HTTPError
+
+                                             # Assuming speak_res.content is the raw audio data bytes (e.g., WAV bytes)
+                                             st.audio(speak_res.content, format="audio/wav", key="synthesized_audio_player")
+
+                                         except requests.exceptions.Timeout:
+                                              st.error(f"Speech synthesis request timed out after {180} seconds.")
+                                         except requests.exceptions.RequestException as e:
+                                             st.error(f"Error synthesizing speech response from backend.")
+                                             if e.response: st.text(e.response.text)
+                                         except Exception as e:
+                                             st.error(f"An unexpected error occurred during speech synthesis: {e}")
+                                else:
+                                    st.info("Command processed, but no speech response was generated by the backend.")
+
+                            except requests.exceptions.Timeout:
+                                st.error(f"Command processing request timed out after {120} seconds.")
+                            except requests.exceptions.RequestException as e:
+                                 st.error(f"Error processing command with backend.")
+                                 if e.response: st.text(e.response.text)
+                            except Exception as e:
+                                st.error(f"An unexpected error occurred during command processing: {e}")
+
+                    else:
+                        st.warning("Transcription was empty. Could not process command.")
+
+                except requests.exceptions.Timeout:
+                    st.error(f"Voice transcription request timed out after {120} seconds.")
+                except requests.exceptions.RequestException as e:
+                     st.error(f"Error during voice transcription request to backend.")
+                     if e.response: st.text(e.response.text)
+                except Exception as e:
+                    st.error(f"An unexpected error occurred during transcription: {e}")
+
+
+        st.markdown("---") # Separator for live recording
+
+        # --- Live Voice Recording ---
+        st.markdown("#### Live Voice Recording")
+
+        class AudioRecorder(AudioProcessorBase):
+            def __init__(self):
+                # Initialize list to store audio frames from the browser
+                self.audio_frames = []
+            def recv(self, frame: av.AudioFrame) -> av.AudioFrame:
+                # Append audio data as numpy arrays to the list
+                self.audio_frames.append(frame.to_ndarray())
+                return frame # Return the frame to allow potential chaining
+
+
+        # Streamlit-webrtc component for live recording.
+        # Use a unique key.
+        ctx = webrtc_streamer(
+            key="voice-recorder", # Unique key for this webrtc instance
+            mode=WebRtcMode.SENDONLY, # Set mode to send only audio from browser to processor
+            audio_receiver_size=1024, # Buffer size for audio frames
+            client_settings=ClientSettings( # Configure browser media access permissions
+                media_stream_constraints={"audio": True, "video": False} # Request audio input only, no video
+            ),
+            audio_processor_factory=AudioRecorder, # Specify our custom audio processor class
+            async_processing=True # Enable asynchronous processing for better performance
+        )
+
+        # Logic to process recorded audio after recording stops and button is clicked
+        if ctx.audio_processor: # Check if the audio processor instance is active (recording is possible)
+            st.info("🎙️ Click 'Start' to begin recording. Click the 'Stop' button provided by Streamlit-webrtc when done, then click 'Stop and Submit Voice'.")
+            # The 'Stop' button is automatically displayed by streamlit-webrtc when recording is active.
+
+            # This button appears after clicking the Stop button provided by streamlit-webrtc
+            # Use a unique key.
+            if st.button("Stop and Submit Voice", key="submit_recorded_voice_button"):
+                 if not ctx.audio_processor.audio_frames: # Check if any audio was actually recorded
+                      st.warning("No audio frames were recorded.")
+                 else:
+                    with st.spinner("Processing recorded audio..."):
+                        try:
+                            # Concatenate recorded frames (list of numpy arrays) and convert to 16-bit integer format (standard for WAV)
+                            audio_data = np.concatenate(ctx.audio_processor.audio_frames, axis=1).flatten().astype(np.int16)
+
+                            # Use a temporary file to save the recorded audio as a WAV file
+                            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
+                                # Write the numpy audio data to the temporary WAV file
+                                sf.write(tmpfile.name, audio_data, samplerate=48000, format="WAV") # Save as WAV with specified sample rate
+                                temp_audio_path = tmpfile.name # Store the path to the temporary file for cleanup
+
+                            # Read the content of the temporary file to prepare for the API request
+                            with open(temp_audio_path, "rb") as f:
+                                # Prepare the file payload for the requests.post call
+                                files = {"file": ("live_recording.wav", f.read(), "audio/wav")}
+
+                            # --- Send Recorded Audio to Transcribe Endpoint ---
+                            transcribe_res = requests.post(voice_transcribe_url, files=files, timeout=120) # Increased timeout
+                            transcribe_res.raise_for_status() # Raise HTTPError if transcription fails
+
+                            # Get the transcript from the JSON response
+                            transcript = transcribe_res.json().get("transcript", "")
+
+                            if transcript: # Proceed only if transcription is not empty
+                                st.success(f"🧠 You said: `{transcript}`")
+
+                                # --- Process Transcribed Command ---
+                                with st.spinner("Processing command..."):
+                                    try:
+                                        # Send the transcribed text command to the backend command endpoint
+                                        command_res = requests.post(voice_command_url, json={"text_command": transcript}, timeout=120) # Increased timeout
+                                        command_res.raise_for_status() # Raise HTTPError if command processing fails
+
+                                        reply = command_res.json().get("spoken_text", "No response provided by the command agent.")
+
+                                        if reply and reply != "No response provided by the command agent.": # Only speak if there's a meaningful reply
+                                            st.markdown(f"🔁 Response: `{reply}`")
+
+                                            # --- Synthesize and Play Response ---
+                                            with st.spinner("Synthesizing speech response..."):
+                                                try:
+                                                    # Send the reply text to the backend speak endpoint
+                                                    # Timeout might be longer for synthesis depending on backend TTS
+                                                    speak_res = requests.post(voice_speak_url, json={"text_command": reply}, timeout=180) # Increased timeout
+                                                    speak_res.raise_for_status() # Raise HTTPError if synthesis fails
+
+                                                    # Assuming speak_res.content is the raw audio data bytes (e.g., WAV bytes)
+                                                    st.audio(speak_res.content, format="audio/wav", key="live_synthesized_audio_player")
+
+                                                except requests.exceptions.Timeout:
+                                                     st.error(f"Speech synthesis request timed out after {180} seconds.")
+                                                except requests.exceptions.RequestException as e:
+                                                    st.error(f"Error synthesizing speech response from backend.")
+                                                    if e.response: st.text(e.response.text)
+                                                except Exception as e:
+                                                   st.error(f"An unexpected error occurred during speech synthesis: {e}")
+                                        else:
+                                            st.info("Command processed, but no speech response was generated by the backend.")
+
+                                    except requests.exceptions.Timeout:
+                                        st.error(f"Command processing request timed out after {120} seconds.")
+                                    except requests.exceptions.RequestException as e:
+                                         st.error(f"Error processing command with backend.")
+                                         if e.response: st.text(e.response.text)
+                                    except Exception as e:
+                                        st.error(f"An unexpected error occurred during command processing: {e}")
+                            else:
+                                st.warning("Transcription was empty. Could not process command.")
+
+                            # Clear recorded frames after processing to reset the AudioRecorder for the next recording
+                            ctx.audio_processor.audio_frames = []
+
+                        except requests.exceptions.Timeout:
+                            st.error(f"Voice transcription request timed out after {120} seconds.")
+                        except requests.exceptions.RequestException as e:
+                            st.error(f"Error during voice transcription request to backend.")
+                            if e.response: st.text(e.response.text)
+                        except Exception as e:
+                           st.error(f"An unexpected error occurred during recording processing or transcription: {e}")
+                        finally:
+                            # Ensure the temporary audio file is cleaned up regardless of success or failure
+                            if 'temp_audio_path' in locals() and os.path.exists(temp_audio_path):
+                                try:
+                                    os.remove(temp_audio_path)
+                                except OSError as e:
+                                    # Log a warning if cleanup fails, but don't stop the app
+                                    st.warning(f"Could not remove temporary audio file {temp_audio_path}: {e}")
