@@ -4,9 +4,7 @@ import os
 import difflib
 import tempfile
 from streamlit_ace import st_ace
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, ClientSettings, WebRtcMode
-import numpy as np
-import av
+from streamlit_webrtc import webrtc_streamer, ClientSettings, WebRtcMode
 from difflib import HtmlDiff
 import streamlit.components.v1 as components
 
@@ -15,7 +13,7 @@ st.set_page_config(page_title="DebugIQ Dashboard", layout="wide")
 st.title("🧠 DebugIQ Autonomous Debugging Dashboard")
 
 # Backend endpoints
-BACKEND_URL = os.getenv("BACKEND_URL", "https://
+BACKEND_URL = os.getenv("BACKEND_URL", "https://autonomous-debug.onrender.com")
 ANALYZE_URL = f"{BACKEND_URL}/debugiq/analyze"
 QA_URL = f"{BACKEND_URL}/qa/"
 TRANSCRIBE_URL = f"{BACKEND_URL}/voice/transcribe"
@@ -51,7 +49,7 @@ if uploaded_files:
     st.session_state.analysis_results['source_files_content'] = source_files_content
 
 # Tabs
-tab1, tab2, tab3 = st.tabs(["🔧 Patch", "✅ QA", "📘 Docs"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["🔧 Patch", "✅ QA", "📘 Docs", "📥 Issue Inbox", "🔁 Workflow Status"])
 
 # --- PATCH TAB ---
 with tab1:
@@ -121,6 +119,29 @@ with tab2:
 with tab3:
     st.subheader("📘 Auto-Generated Documentation")
     st.markdown(st.session_state.analysis_results.get("doc_summary", "No documentation available."))
+
+# --- ISSUE INBOX TAB ---
+with tab4:
+    st.subheader("📥 Autonomous Issue Inbox")
+    try:
+        inbox = requests.get(f"{BACKEND_URL}/issues/inbox").json()
+        for issue in inbox.get("issues", []):
+            with st.expander(f"Issue {issue.get('id')} - {issue.get('classification')} [{issue.get('status')}]"):
+                st.json(issue)
+                if st.button(f"▶️ Trigger Workflow for {issue.get('id')}", key=issue.get("id")):
+                    r = requests.post(f"{BACKEND_URL}/workflow/run", json={"issue_id": issue.get("id")})
+                    st.success(f"Triggered: {r.status_code}")
+    except Exception as e:
+        st.error(f"Failed to load inbox: {e}")
+
+# --- WORKFLOW STATUS TAB ---
+with tab5:
+    st.subheader("🔁 Live Workflow Timeline")
+    try:
+        status = requests.get(f"{BACKEND_URL}/workflow/status").json()
+        st.json(status)
+    except Exception as e:
+        st.error(f"Failed to load workflow status: {e}")
 
 # --- 🎙️ VOICE ASSISTANT ---
 st.markdown("## 🎙️ DebugIQ Voice Agent")
