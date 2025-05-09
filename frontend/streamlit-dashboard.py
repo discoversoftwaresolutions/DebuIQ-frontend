@@ -1,25 +1,39 @@
-# Save this code as streamlit-dashboard.py in your project's source code.
-# Deploy your Git repository containing this file to Render.
-# Do NOT run a separate script to write this file to /mnt/data at runtime.
-
 import streamlit as st
 import requests
 import os
 import difflib
 import tempfile
 from streamlit_ace import st_ace
-from streamlit_webrtc import webrtc_streamer, ClientSettings, WebRtcMode
+from streamlit_webrtc import webrtc_streamer, AudioProcessorBase, ClientSettings, WebRtcMode
+import numpy as np
+import av
 from difflib import HtmlDiff
 import streamlit.components.v1 as components
 
 st.set_page_config(page_title="DebugIQ Dashboard", layout="wide")
 st.title("🧠 DebugIQ Autonomous Debugging Dashboard")
 
-BACKEND_URL = os.getenv("BACKEND_URL", "https://debugiq-backend.onrender.com")
-ANALYZE_URL = f"{BACKEND_URL}/debugiq/analyze"
-QA_URL = f"{BACKEND_URL}/qa/"
-TRANSCRIBE_URL = f"{BACKEND_URL}/voice/transcribe"
-COMMAND_URL = f"{BACKEND_URL}/voice/command"
+BACKEND_URL = os.getenv("BACKEND_URL", "https://autonomous-debug.onrender.com")
+
+@st.cache_data
+def fetch_config():
+    try:
+        r = requests.get(f"{BACKEND_URL}/api/config")
+        if r.status_code == 200:
+            return r.json()
+    except Exception as e:
+        st.error(f"⚠️ Could not load config: {e}")
+    return {}
+
+config = fetch_config()
+if config:
+    st.sidebar.info(f"🔧 Voice Provider: {config.get('voice_provider', 'N/A')}")
+    st.sidebar.info(f"🧠 Model: {config.get('model', 'N/A')}")
+
+ANALYZE_URL = config.get("analyze", f"{BACKEND_URL}/debugiq/analyze")
+QA_URL = config.get("qa", f"{BACKEND_URL}/qa/")
+TRANSCRIBE_URL = config.get("voice_transcribe", f"{BACKEND_URL}/voice/transcribe")
+COMMAND_URL = config.get("voice_command", f"{BACKEND_URL}/voice/command")
 
 if 'analysis_results' not in st.session_state:
     st.session_state.analysis_results = {
@@ -34,155 +48,64 @@ if 'analysis_results' not in st.session_state:
 if 'qa_result' not in st.session_state:
     st.session_state.qa_result = None
 
-uploaded_files = st.file_uploader("📄 Upload traceback (.txt) + source files", type=["txt", "py"], accept_multiple_files=True)
+# === GitHub Repo Integration Sidebar ===
+# === GitHub Repo Integration Sidebar ===
+st.sidebar.markdown("### 📦 Load From GitHub Repo")
+repo_url = st.sidebar.text_input("Public GitHub URL", placeholder="https://github.com/user/repo")
 
-trace_content, source_files_content = None, {}
-if uploaded_files:
-    for file in uploaded_files:
-        content = file.getvalue().decode("utf-8")
-        if file.name.endswith(".txt"):
-            trace_content = content
+if repo_url:
+    try:
+        import re
+        import base64
+
+        match = re.match(r"https://github.com/([^/]+)/([^/]+)", repo_url.strip())
+        if match:
+            owner, repo = match.groups()
+            branches_res = requests.get(f"https://api.github.com/repos/{owner}/{repo}/branches")
+            if branches_res.status_code == 200:
+                branches = [b["name"] for b in branches_res.json()]
+                selected_branch = st.sidebar.selectbox("Branch", branches)
+
+                # Directory navigator
+                path_stack = st.session_state.get("github_path_stack", [""])
+                current_path = "/".join([p for p in path_stack if p])
+
+                content_res = requests.get(
+                    f"https://api.github.com/repos/{owner}/{repo}/contents/{current_path}?ref={selected_branch}"
+                )
+
+                if content_res.status_code == 200:
+                    entries = content_res.json()
+                    dirs = [e["name"] for e in entries if e["type"] == "dir"]
+                    files = [e["name"] for e in entries if e["type"] == "file"]
+
+                    dir_choice = st.sidebar.selectbox("📁 Navigate", [".."] + dirs)
+                    if "github_path_stack" not in st.session_state:
+                        st.session_state.github_path_stack = [""]
+
+                    if dir_choice == ".." and len(path_stack) > 1:
+                        st.session_state.github_path_stack.pop()
+                        st.experimental_rerun()
+                    elif dir_choice and dir_choice != "..":
+                        st.session_state.github_path_stack.append(dir_choice)
+                        st.experimental_rerun()
+
+                    file_choice = st.sidebar.selectbox("📄 Files", files)
+                    if file_choice:
+                        file_url = f"https://raw.githubusercontent.com/{owner}/{repo}/{selected_branch}/{current_path}/{file_choice}".rstrip("/")
+                        file_content = requests.get(file_url).text
+
+                        st.sidebar.success(f"Loaded: {file_choice}")
+                        # Set the trace or source file based on extension
+                        if file_choice.endswith(".txt"):
+                            st.session_state.analysis_results["trace"] = file_content
+                        else:
+                            st.session_state.analysis_results["source_files_content"][file_choice] = file_content
+
+            else:
+                st.sidebar.error("❌ Invalid repo or cannot fetch branches.")
         else:
-            source_files_content[file.name] = content
+            st.sidebar.warning("Please enter a valid GitHub repo URL.")
 
-    st.session_state.analysis_results['trace'] = trace_content
-    st.session_state.analysis_results['source_files_content'] = source_files_content
-
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["🔧 Patch", "✅ QA", "📘 Docs", "📥 Issue Inbox", "🔁 Workflow Status"])
-
-with tab1:
-    st.subheader("Traceback Analysis + Patch")
-    if st.button("🧠 Run DebugIQ Analysis"):
-        with st.spinner("Analyzing with GPT-4o..."):
-            res = requests.post(ANALYZE_URL, json={
-                "trace": st.session_state.analysis_results['trace'],
-                "language": "python",
-                "config": {},
-                "source_files": st.session_state.analysis_results['source_files_content']
-            })
-            result = res.json()
-            st.session_state.analysis_results.update({
-                'patch': result.get("patch"),
-                'explanation': result.get("explanation"),
-                'doc_summary': result.get("doc_summary"),
-                'patched_file_name': result.get("patched_file_name"),
-                'original_patched_file_content': result.get("original_patched_file_content")
-            })
-            st.success("✅ Patch generated.")
-
-    if st.session_state.analysis_results['patch']:
-        st.markdown("### 🔍 Patch Diff")
-        original = st.session_state.analysis_results['original_patched_file_content']
-        patched = st.session_state.analysis_results['patch']
-        html_diff = HtmlDiff().make_table(
-            original.splitlines(), patched.splitlines(),
-            "Original", "Patched", context=True, numlines=3
-        )
-        components.html(html_diff, height=400, scrolling=True)
-
-        st.markdown("### ✏️ Edit Patch")
-        edited_patch = st_ace(
-            value=patched,
-            language="python",
-            theme="monokai",
-            height=300,
-            key="editor"
-        )
-
-        st.markdown("### 💬 Explanation")
-        st.text_area("Patch Explanation", value=st.session_state.analysis_results['explanation'], height=150)
-
-with tab2:
-    st.subheader("Run Quality Assurance on Patch")
-    if st.button("🛡️ Run QA on Patch"):
-        qa_res = requests.post(QA_URL, json={
-            "trace": st.session_state.analysis_results['trace'],
-            "patch": st.session_state.analysis_results['patch'],
-            "language": "python",
-            "source_files": st.session_state.analysis_results['source_files_content'],
-            "patched_file_name": st.session_state.analysis_results['patched_file_name']
-        })
-        qa_data = qa_res.json()
-        st.session_state.qa_result = qa_data
-        st.success("✅ QA complete")
-
-    if st.session_state.qa_result:
-        st.markdown("### LLM Review")
-        st.markdown(st.session_state.qa_result.get("llm_qa_result", "No LLM feedback."))
-        st.markdown("### Static Analysis")
-        st.json(st.session_state.qa_result.get("static_analysis_result", {}))
-
-with tab3:
-    st.subheader("📘 Auto-Generated Documentation")
-    st.markdown(st.session_state.analysis_results.get("doc_summary", "No documentation available."))
-
-with tab4:
-    st.subheader("📥 Autonomous Issue Inbox")
-    try:
-        inbox = requests.get(f"{BACKEND_URL}/issues/inbox").json()
-        for issue in inbox.get("issues", []):
-            with st.expander(f"Issue {issue.get('id')} - {issue.get('classification')} [{issue.get('status')}]"):
-                st.json(issue)
-                if st.button(f"▶️ Trigger Workflow for {issue.get('id')}", key=issue.get("id")):
-                    r = requests.post(f"{BACKEND_URL}/workflow/run", json={"issue_id": issue.get("id")})
-                    st.success(f"Triggered: {r.status_code}")
     except Exception as e:
-        st.error(f"Failed to load inbox: {e}")
-
-with tab5:
-    st.subheader("🔁 Live Workflow Timeline")
-    try:
-        status = requests.get(f"{BACKEND_URL}/workflow/status").json()
-        st.json(status)
-    except Exception as e:
-        st.error(f"Failed to load workflow status: {e}")
-
-st.markdown("## 🎙️ DebugIQ Voice Agent")
-ctx = webrtc_streamer(
-    key="voice",
-    mode=WebRtcMode.SENDONLY,
-    client_settings=ClientSettings(
-        media_stream_constraints={"audio": True, "video": False},
-        rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
-    ),
-    audio_receiver_size=256
-)
-
-if ctx and ctx.audio_receiver:
-    frames = ctx.audio_receiver.get_frames(timeout=1)
-    if frames:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
-            # Correct way to handle audio frames into a WAV file
-            # You'll likely need a proper WAV writer here, this is a simplification
-            # using pydub or similar might be needed for robustness
-            import wave
-            sample_rate = 48000 # Assuming a common sample rate, adjust if needed
-            num_channels = 1 # Assuming mono, adjust if needed
-            sample_width = 2 # Assuming 16-bit audio (2 bytes), adjust if needed
-
-            with wave.open(f.name, 'wb') as wf:
-                wf.setnchannels(num_channels)
-                wf.setsampwidth(sample_width)
-                wf.setframerate(sample_rate)
-                wf.writeframes(b"".join([frame.to_ndarray().tobytes() for frame in frames]))
-
-            files = {"file": open(f.name, "rb")}
-            try:
-                r = requests.post(TRANSCRIBE_URL, files=files)
-                if r.ok:
-                    transcript = r.json().get("transcript")
-                    st.success(f"🗣️ Transcribed: {transcript}")
-                    # Only send command if transcription was successful
-                    if transcript:
-                         r2 = requests.post(COMMAND_URL, json={"text_command": transcript})
-                         if r2.ok:
-                             st.info(f"🤖 GPT-4o: {r2.json().get('spoken_text')}")
-                         else:
-                             st.error(f"Failed to get command response: {r2.status_code}")
-                             st.error(f"Response body: {r2.text}")
-                else:
-                    st.error(f"Transcription failed: {r.status_code}")
-                    st.error(f"Response body: {r.text}")
-            finally:
-                 # Clean up the temporary file
-                 os.remove(f.name)
+        st.sidebar.error(f"⚠️ GitHub Load Error: {e}")
