@@ -4,7 +4,7 @@ import streamlit as st
 import requests
 import json
 
-BACKEND_URL = st.session_state.get("BACKEND_URL", "https://autonomous-debug.onrender.com")
+BACKEND_URL = st.session_state.get("BACKEND_URL", "https://debugiq-backend.onrender.com")
 
 TRIAGE_URL = f"{BACKEND_URL}/workflow/triage"
 RUN_WORKFLOW_URL = f"{BACKEND_URL}/workflow/run"
