@@ -1,5 +1,5 @@
-# Save this code as streamlit-dashboard.py in your project's source code.
-# This is your main Streamlit application file.
+# Save this code as streamlit-dashboard.py in your project's source code
+# at the path DebuIQ-frontend/frontend/streamlit-dashboard.py
 
 import streamlit as st
 import requests
@@ -15,14 +15,25 @@ import streamlit.components.v1 as components
 import wave # Import wave for proper WAV writing
 import json # Import json for file handling
 
-# Import the Autonomous Workflow Tab function
-# Make sure frontend/screens/AutonomousWorkflowTab.py exists in your repo
-# And that frontend/__init__.py and frontend/screens/__init__.py exist (can be empty files)
+# --- Import the Autonomous Workflow Tab function ---
+# IMPORTANT: This uses a relative import to a sibling directory (.screens).
+# Make sure AutonomousWorkflowTab.py is at DebuIQ-frontend/.screens/AutonomousWorkflowTab.py
+# AND that you have empty __init__.py files in:
+# - DebuIQ-frontend/frontend/__init__.py
+# - DebuIQ-frontend/.screens/__init__.py
+autonomous_tab_imported = False
+show_autonomous_tab_import_error = None # Variable to store potential import error message
+show_autonomous_workflow_tab = None
 try:
-    from frontend.screens.AutonomousWorkflowTab import show_autonomous_workflow_tab
-except ImportError:
-    st.error("Could not import the Autonomous Workflow Tab. Make sure frontend/screens/AutonomousWorkflowTab.py exists and __init__.py files are in the directories.")
-    show_autonomous_workflow_tab = None # Define a placeholder if import fails
+    # Using relative import based on your structure: go up one level (..) then into .screens
+    # Ensure __init__.py files exist in both 'frontend' and '.screens' relative to DebuIQ-frontend/
+    from ..screens.AutonomousWorkflowTab import show_autonomous_workflow_tab
+    autonomous_tab_imported = True
+except ImportError as e:
+    # Do NOT use st.error here, just set the flag and store the error message
+    autonomous_tab_imported = False
+    show_autonomous_tab_import_error = str(e) # Store the error message
+    show_autonomous_workflow_tab = None # Ensure it's None
 
 
 # --- Streamlit Page Configuration ---
@@ -30,6 +41,14 @@ except ImportError:
 st.set_page_config(page_title="DebugIQ Dashboard", layout="wide")
 
 st.title("🧠 DebugIQ Autonomous Debugging Dashboard")
+
+# --- Display import error *after* set_page_config ---
+# This message will only show if the import failed earlier
+if not autonomous_tab_imported:
+    st.error(f"Could not import the Autonomous Workflow Orchestration tab: {show_autonomous_tab_import_error}. "
+             f"Make sure AutonomousWorkflowTab.py is at the correct path (DebuIQ-frontend/.screens/) "
+             f"and __init__.py files are in the 'frontend' and '.screens' directories.")
+
 
 # Corrected the syntax error in os.getenv by adding quotes around the default URL
 BACKEND_URL = os.getenv("BACKEND_URL", "https://debugiq-backend.onrender.com")
@@ -180,7 +199,9 @@ if repo_url:
                                     # Store with full path from repo root for clarity
                                     full_file_path = os.path.join(current_path, f).replace("\\", "/") if current_path else f # Use / for paths
                                     st.session_state.analysis_results["source_files_content"][full_file_path] = file_content
-                                    st.session_state.analysis_results["trace"] = None # Clear trace if a source file is loaded and it was a txt
+                                    # Decide if loading a source file should clear the trace - currently it does if the source file is txt
+                                    # if f.endswith(".txt"): # This condition was inside the elif block, likely a copy-paste error
+                                    #    st.session_state.analysis_results["trace"] = None # Clear trace if a non-trace file is loaded? Depends on logic
                                 else:
                                      st.sidebar.warning(f"Ignoring file '{f}' - unsupported extension for analysis/source files.")
 
@@ -223,36 +244,49 @@ if uploaded_files:
          if trace_content_upload is not None:
              st.session_state.analysis_results['trace'] = trace_content_upload
              st.session_state.analysis_results['source_files_content'] = {} # Clear source files if new trace is uploaded
-             st.session_state.github_repo_url_input = "" # Clear GitHub URL input on upload
-             st.session_state.current_github_repo_url = None # Clear cached GitHub data
+             # Clear GitHub state as manual upload overrides it
+             st.session_state.github_repo_url_input = ""
+             st.session_state.current_github_repo_url = None
+             if "github_branches" in st.session_state: del st.session_state.github_branches
+             if "github_selected_branch" in st.session_state: del st.session_state.github_selected_branch
+             if "github_path_stack" in st.session_state: del st.session_state.github_path_stack
+
              st.success("✅ Traceback uploaded and loaded.")
 
          if source_files_content_upload:
-             # Clear existing source files if a trace wasn't just uploaded, but new source files are
-             if trace_content_upload is None and st.session_state.analysis_results['trace'] is None:
-                  st.session_state.analysis_results['source_files_content'] = {}
+             # If trace wasn't uploaded, but source files were, potentially clear existing source files
+             # This logic depends on whether you want uploads to *add* to or *replace* existing source files
+             # Current: update/merge source files, clear trace if a trace was just uploaded
+             # Alternative: clear all existing source files before adding new ones
+             # st.session_state.analysis_results['source_files_content'] = {} # Uncomment to replace existing source files
 
              st.session_state.analysis_results['source_files_content'].update(source_files_content_upload) # Use update to merge
-             # st.session_state.analysis_results['trace'] = None # Clear trace if source files are uploaded? Depends on desired behavior
-             st.session_state.github_repo_url_input = "" # Clear GitHub URL input on upload
-             st.session_state.current_github_repo_url = None # Clear cached GitHub data
+             # st.session_state.analysis_results['trace'] = None # Uncomment to clear trace if source files are uploaded
+
+             # Clear GitHub state as manual upload overrides it
+             st.session_state.github_repo_url_input = ""
+             st.session_state.current_github_repo_url = None
+             if "github_branches" in st.session_state: del st.session_state.github_branches
+             if "github_selected_branch" in st.session_state: del st.session_state.github_selected_branch
+             if "github_path_stack" in st.session_state: del st.session_state.github_path_stack
+
              st.success(f"✅ Source files uploaded and loaded: {list(source_files_content_upload.keys())}")
 
 
-# Define Tabs - Adding the Autonomous Workflow Tab as the 6th tab
+# Define Tabs - Changed the order of tab 5 and 6
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "🔧 Patch",
     "✅ QA",
     "📘 Docs",
     "📥 Issue Inbox",
-    "🔁 Workflow Status",
-    "🤖 Workflow Orchestration" # The new tab
+    "🤖 Workflow Orchestration", # Moved to 5th position
+    "🔁 Workflow Status"      # Moved to 6th position
 ])
 
 with tab1:
     st.subheader("Traceback Analysis + Patch")
     if st.button("🧠 Run DebugIQ Analysis", key="run_analysis_button"): # Added key
-        if st.session_state.analysis_results['trace'] is None and not st.session_state.analysis_results['source_files_content']:
+        if st.session_state.analysis_results.get('trace') is None and not st.session_state.analysis_results.get('source_files_content'): # Use .get()
             st.warning("Please upload a traceback or source files from the sidebar or below.")
         else:
             with st.spinner("Analyzing with GPT-4o..."):
@@ -277,8 +311,16 @@ with tab1:
                     else:
                         st.error(f"Analysis failed: {res.status_code}")
                         st.error(f"Response body: {res.text}")
+                        st.session_state.analysis_results.update({ # Clear results on failure
+                            'patch': None, 'explanation': None, 'doc_summary': None,
+                            'patched_file_name': None, 'original_patched_file_content': None
+                        })
                 except requests.exceptions.RequestException as e:
                     st.error(f"Error communicating with backend: {e}")
+                    st.session_state.analysis_results.update({ # Clear results on failure
+                         'patch': None, 'explanation': None, 'doc_summary': None,
+                         'patched_file_name': None, 'original_patched_file_content': None
+                    })
 
 
     if st.session_state.analysis_results.get('patch'): # Check if patch exists using .get()
@@ -295,11 +337,11 @@ with tab1:
                  components.html(html_diff, height=400, scrolling=True)
              except Exception as e:
                  st.error(f"Could not generate diff: {e}")
-                 st.text_area("Original Content", value=original, height=200)
-                 st.text_area("Patched Content", value=patched, height=200)
+                 st.text_area("Original Content", value=original, height=200, key="orig_content_display", disabled=True)
+                 st.text_area("Patched Content", value=patched, height=200, key="patch_content_display", disabled=True)
 
         elif patched:
-             st.text_area("Generated Patch Content", value=patched, height=300, disabled=True, label="Generated Patch Content (No Diff Available)") # Use disabled if no diff
+             st.text_area("Generated Patch Content", value=patched, height=300, key="patch_only_display", disabled=True, label="Generated Patch Content (No Diff Available)") # Use disabled if no diff
         elif original:
              st.info("Original content loaded, but no patch has been generated yet.")
         else:
@@ -325,7 +367,7 @@ with tab1:
 
 
         st.markdown("### 💬 Explanation")
-        st.text_area("Patch Explanation", value=st.session_state.analysis_results.get('explanation', 'No explanation available.'), height=150, disabled=True) # Disable editing explanation?
+        st.text_area("Patch Explanation", value=st.session_state.analysis_results.get('explanation', 'No explanation available.'), height=150, disabled=True, key="explanation_display") # Disable editing explanation?
 
 with tab2:
     st.subheader("Run Quality Assurance on Patch")
@@ -375,24 +417,31 @@ with tab3:
 
 
 with tab4:
-    st.subheader("📥 Autonomous Issue Inbox")
+    st.subheader("📥 Issue Inbox")
     # Using a button in the main area to refresh is clearer
     if st.button("🔄 Refresh Inbox", key="refresh_inbox_button"):
-         st.cache_data.clear() # Clear all cache including inbox to force refresh - be mindful if other caches are needed
-         # Alternatively, use a separate cache for inbox and clear it specifically if possible with newer Streamlit versions
-         # For now, clearing all cache or using session_state is easier
+         # Clearing cache_data *might* be too broad. Better to manage state in session_state.
+         # st.cache_data.clear() # Consider removing if only session_state is used for inbox_data
          st.session_state.inbox_data = None # Clear session state cache
          st.rerun() # Rerun to show updated data
 
 
     inbox_url = f"{BACKEND_URL}/issues/inbox"
-    # @st.cache_data(ttl=30) # Cache inbox data for 30 seconds - Disabled if using session_state cache
-    # def fetch_inbox(url): ... (definition remains the same, but st.error removed)
+    # @st.cache_data(ttl=30) # Cache inbox data for 30 seconds - Can use alongside session_state
+    # def fetch_inbox_cached(url): # Define a separate cached function
+    #    try:
+    #        r = requests.get(url)
+    #        r.raise_for_status()
+    #        return r.json()
+    #    except requests.exceptions.RequestException as e:
+    #        print(f"Error fetching inbox: {e}")
+    #        return None
 
     # Fetch data only if not in session_state cache or if it's explicitly cleared
     if "inbox_data" not in st.session_state or st.session_state.inbox_data is None:
         try:
             with st.spinner("Loading inbox..."):
+                # Use requests directly or call the cached function here
                 r = requests.get(inbox_url)
                 r.raise_for_status()
                 st.session_state.inbox_data = r.json()
@@ -429,22 +478,41 @@ with tab4:
 
     elif inbox is not None: # inbox is not None but has no issues key or issues list
         st.info("No issues in the inbox.")
+    # else: inbox is None meaning fetch failed entirely, error message already shown
 
 
-with tab5:
+# === The Autonomous Workflow Orchestration Tab (Now Tab 5) ===
+with tab5: # Changed from tab6 to tab5
+    # Call the function imported from AutonomousWorkflowTab.py
+    if autonomous_tab_imported: # Only call if the import was successful
+        # Pass the BACKEND_URL to the tab function
+        show_autonomous_workflow_tab(BACKEND_URL)
+    # The error message for import failure is displayed at the top
+
+
+# === Workflow Status Tab (Now Tab 6) ===
+with tab6: # Changed from tab5 to tab6
     st.subheader("🔁 Live Workflow Timeline")
     if st.button("🔄 Refresh Status", key="refresh_status_button"): # Added key
         st.session_state.workflow_status = None # Clear session state cache
-        st.cache_data.clear() # Clear cache data just in case
+        # st.cache_data.clear() # Consider removing
 
     status_url = f"{BACKEND_URL}/workflow/status"
-    # @st.cache_data(ttl=5) # Cache status data for 5 seconds - Disabled if using session_state cache
-    # def fetch_status(url): ... (definition remains the same, but st.error removed)
+    # @st.cache_data(ttl=5) # Cache status data for 5 seconds - Can use alongside session_state
+    # def fetch_status_cached(url): # Define a separate cached function
+    #     try:
+    #         r = requests.get(url)
+    #         r.raise_for_status()
+    #         return r.json()
+    #     except requests.exceptions.RequestException as e:
+    #         print(f"Error fetching status: {e}")
+    #         return None
 
     # Fetch data only if not in session_state cache or if it's explicitly cleared
     if "workflow_status" not in st.session_state or st.session_state.workflow_status is None:
         try:
             with st.spinner("Loading workflow status..."):
+                # Use requests directly or call the cached function here
                 r = requests.get(status_url)
                 r.raise_for_status()
                 st.session_state.workflow_status = r.json()
@@ -458,15 +526,7 @@ with tab5:
         st.json(workflow_status)
     elif workflow_status is not None: # Status was fetched but is empty/not valid JSON structure expected
         st.info("Workflow status data is empty or in an unexpected format.")
-
-
-# === The NEW Autonomous Workflow Orchestration Tab (Tab 6) ===
-with tab6:
-    # Call the function imported from AutonomousWorkflowTab.py
-    if show_autonomous_workflow_tab is not None: # Only show if the import was successful
-        show_autonomous_workflow_tab()
-    else:
-        st.warning("Autonomous Workflow Orchestration tab is not available due to import error.")
+    # else: workflow_status is None meaning fetch failed, error message already shown
 
 
 # === Voice Agent Section ===
@@ -492,6 +552,12 @@ if "audio_buffer" not in st.session_state:
      st.session_state.audio_buffer = b""
 if "audio_frame_count" not in st.session_state:
      st.session_state.audio_frame_count = 0
+if "audio_sample_rate" not in st.session_state:
+     st.session_state.audio_sample_rate = 16000 # Default common sample rate
+if "audio_sample_width" not in st.session_state:
+     st.session_state.audio_sample_width = 2 # Default 16-bit audio (2 bytes)
+if "audio_num_channels" not in st.session_state:
+     st.session_state.audio_num_channels = 1 # Default mono
 
 if ctx and ctx.audio_receiver:
     try:
@@ -499,34 +565,51 @@ if ctx and ctx.audio_receiver:
         audio_frames = ctx.audio_receiver.get_frames(timeout=0.1)
 
         if audio_frames:
+            # Try to infer audio parameters from the first frame if not set
+            # Note: Consistency of format across frames is assumed
+            if st.session_state.audio_sample_rate == 16000 and audio_frames[0].format.rate:
+                st.session_state.audio_sample_rate = audio_frames[0].format.rate
+            if st.session_state.audio_sample_width == 2 and audio_frames[0].format.bytes:
+                 st.session_state.audio_sample_width = audio_frames[0].format.bytes
+            if st.session_state.audio_num_channels == 1 and audio_frames[0].format.channels:
+                 st.session_state.audio_num_channels = audio_frames[0].format.channels
+
+
             # Append audio data to buffer
             for frame in audio_frames:
                  # Ensure frame is in the expected format (e.g., int16)
-                 # If frame.to_ndarray() gives float, convert and scale
-                 audio_data = frame.to_ndarray().astype(np.int16).tobytes()
+                 # Assuming frame is initially float or int, convert to int16 bytes
+                 # This might require more sophisticated handling based on actual frame format
+                 if frame.format.name == 's16': # Signed 16-bit integers
+                      audio_data = frame.to_ndarray().tobytes()
+                 elif frame.format.name == 'flt32': # 32-bit floats
+                      # Convert float32 to int16
+                      audio_data = (frame.to_ndarray() * (2**15)).astype(np.int16).tobytes()
+                 else:
+                      st.warning(f"Unsupported audio format received: {frame.format.name}")
+                      continue # Skip frame if format is unknown
+
                  st.session_state.audio_buffer += audio_data
                  st.session_state.audio_frame_count += frame.samples # Sum up samples
 
             st.sidebar.text(f"Buffered: {st.session_state.audio_frame_count} samples")
 
             # --- Process buffer periodically (Example) ---
-            # Define a threshold for processing (e.g., 1 second of audio at 16kHz = 16000 samples)
-            processing_threshold_samples = 16000 # Example: 1 second at 16kHz
+            # Define a threshold for processing (e.g., 1 second of audio)
+            # Convert seconds to samples based on the determined sample rate
+            processing_threshold_seconds = 1
+            processing_threshold_samples = processing_threshold_seconds * st.session_state.audio_sample_rate
 
-            if st.session_state.audio_frame_count >= processing_threshold_samples:
-                st.info(f"Processing ~{st.session_state.audio_frame_count/16000:.2f} seconds of audio...")
+
+            if st.session_state.audio_frame_count >= processing_threshold_samples and st.session_state.audio_buffer:
+                st.info(f"Processing ~{st.session_state.audio_frame_count/st.session_state.audio_sample_rate:.2f} seconds of audio...")
                 # Write buffered data to a temp WAV and send
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_wav_file:
                     wav_writer = wave.open(tmp_wav_file.name, 'wb')
-                    # These parameters must match the actual audio format and your needs
-                    # Common for speech: 1 channel, 16-bit (2 bytes), 16kHz sample rate
-                    sample_rate = 16000
-                    num_channels = 1
-                    sample_width = 2 # bytes
-
-                    wav_writer.setnchannels(num_channels)
-                    wav_writer.setsampwidth(sample_width)
-                    wav_writer.setframerate(sample_rate)
+                    # Use parameters determined from frames or defaults
+                    wav_writer.setnchannels(st.session_state.audio_num_channels)
+                    wav_writer.setsampwidth(st.session_state.audio_sample_width)
+                    wav_writer.setframerate(st.session_state.audio_sample_rate)
                     wav_writer.writeframes(st.session_state.audio_buffer)
                     wav_writer.close()
 
@@ -534,26 +617,22 @@ if ctx and ctx.audio_receiver:
                 files = {"file": open(tmp_wav_file.name, "rb")}
                 try:
                     transcribe_res = requests.post(TRANSCRIBE_URL, files=files)
-                    if transcribe_res.status_code == 200:
-                        transcript_data = transcribe_res.json()
-                        transcript = transcript_data.get("transcript")
-                        if transcript:
-                            st.success(f"🗣️ Transcribed: {transcript}")
-                            # Send transcript as command
-                            command_res = requests.post(COMMAND_URL, json={"text_command": transcript})
-                            if command_res.status_code == 200:
-                                command_data = command_res.json()
-                                st.info(f"🤖 GPT-4o: {command_data.get('spoken_text', 'No response.')}")
-                            else:
-                                st.error(f"Command failed: {command_res.status_code}")
-                                st.error(f"Command response body: {command_res.text}")
-                        else:
-                             st.info("Transcription returned empty.")
+                    transcribe_res.raise_for_status()
+                    transcript_data = transcribe_res.json()
+                    transcript = transcript_data.get("transcript")
+                    if transcript:
+                        st.success(f"🗣️ Transcribed: {transcript}")
+                        # Send transcript as command
+                        command_res = requests.post(COMMAND_URL, json={"text_command": transcript})
+                        command_res.raise_for_status()
+                        command_data = command_res.json()
+                        st.info(f"🤖 GPT-4o: {command_data.get('spoken_text', 'No response.')}")
                     else:
-                        st.error(f"Transcription failed: {transcribe_res.status_code}")
-                        st.error(f"Transcription response body: {transcribe_res.text}")
+                         st.info("Transcription returned empty.")
                 except requests.exceptions.RequestException as e:
                     st.error(f"Error during transcription or command: {e}")
+                except Exception as e:
+                    st.error(f"Error processing transcription or command response: {e}")
                 finally:
                     # Clean up the temporary file
                     os.remove(tmp_wav_file.name)
