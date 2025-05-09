@@ -13,7 +13,7 @@ st.set_page_config(page_title="DebugIQ Dashboard", layout="wide")
 st.title("🧠 DebugIQ Autonomous Debugging Dashboard")
 
 # Backend endpoints
-BACKEND_URL = os.getenv("BACKEND_URL",  https://debugiq-backend.onrender.com")
+BACKEND_URL = os.getenv("BACKEND_URL",  https://debugiq-backend.onrender.com)
 QA_URL = f"{BACKEND_URL}/qa/"
 TRANSCRIBE_URL = f"{BACKEND_URL}/voice/transcribe"
 COMMAND_URL = f"{BACKEND_URL}/voice/command"
