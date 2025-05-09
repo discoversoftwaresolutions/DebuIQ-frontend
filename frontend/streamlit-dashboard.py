@@ -1,11 +1,7 @@
-# Recreate path and write corrected dashboard after environment reset
-from pathlib import Path
+# Save this code as streamlit-dashboard.py in your project's source code.
+# Deploy your Git repository containing this file to Render.
+# Do NOT run a separate script to write this file to /mnt/data at runtime.
 
-streamlit_dashboard_path = Path("/mnt/data/DebugIQ-frontend/frontend/streamlit-dashboard.py")
-
-
-# Use the corrected code with proper BACKEND_URL
-corrected_dashboard_code = '''
 import streamlit as st
 import requests
 import os
@@ -156,17 +152,37 @@ if ctx and ctx.audio_receiver:
     frames = ctx.audio_receiver.get_frames(timeout=1)
     if frames:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
-            wav_data = b"".join([frame.to_ndarray().tobytes() for frame in frames])
-            f.write(wav_data)
-            f.flush()
+            # Correct way to handle audio frames into a WAV file
+            # You'll likely need a proper WAV writer here, this is a simplification
+            # using pydub or similar might be needed for robustness
+            import wave
+            sample_rate = 48000 # Assuming a common sample rate, adjust if needed
+            num_channels = 1 # Assuming mono, adjust if needed
+            sample_width = 2 # Assuming 16-bit audio (2 bytes), adjust if needed
+
+            with wave.open(f.name, 'wb') as wf:
+                wf.setnchannels(num_channels)
+                wf.setsampwidth(sample_width)
+                wf.setframerate(sample_rate)
+                wf.writeframes(b"".join([frame.to_ndarray().tobytes() for frame in frames]))
+
             files = {"file": open(f.name, "rb")}
-            r = requests.post(TRANSCRIBE_URL, files=files)
-            if r.ok:
-                transcript = r.json().get("transcript")
-                st.success(f"🗣️ Transcribed: {transcript}")
-                r2 = requests.post(COMMAND_URL, json={"text_command": transcript})
-                if r2.ok:
-                    st.info(f"🤖 GPT-4o: {r2.json().get('spoken_text')}")
-'''.strip()
-
-
+            try:
+                r = requests.post(TRANSCRIBE_URL, files=files)
+                if r.ok:
+                    transcript = r.json().get("transcript")
+                    st.success(f"🗣️ Transcribed: {transcript}")
+                    # Only send command if transcription was successful
+                    if transcript:
+                         r2 = requests.post(COMMAND_URL, json={"text_command": transcript})
+                         if r2.ok:
+                             st.info(f"🤖 GPT-4o: {r2.json().get('spoken_text')}")
+                         else:
+                             st.error(f"Failed to get command response: {r2.status_code}")
+                             st.error(f"Response body: {r2.text}")
+                else:
+                    st.error(f"Transcription failed: {r.status_code}")
+                    st.error(f"Response body: {r.text}")
+            finally:
+                 # Clean up the temporary file
+                 os.remove(f.name)
