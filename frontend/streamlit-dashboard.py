@@ -2,7 +2,7 @@
 from pathlib import Path
 
 streamlit_dashboard_path = Path("/mnt/data/DebugIQ-frontend/frontend/streamlit-dashboard.py")
-streamlit_dashboard_path.parent.mkdir(parents=True, exist_ok=True)
+
 
 # Use the corrected code with proper BACKEND_URL
 corrected_dashboard_code = '''
@@ -169,4 +169,4 @@ if ctx and ctx.audio_receiver:
                     st.info(f"🤖 GPT-4o: {r2.json().get('spoken_text')}")
 '''.strip()
 
-streamlit_dashboard_path.write_text(corrected_dashboard_code + "\n")
+
