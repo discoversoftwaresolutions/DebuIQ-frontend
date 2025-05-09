@@ -27,7 +27,7 @@ show_autonomous_workflow_tab = None
 try:
     # Using relative import based on your structure: go up one level (..) then into .screens
     # Ensure __init__.py files exist in both 'frontend' and '.screens' relative to DebuIQ-frontend/
-    from ..screens.AutonomousWorkflowTab import show_autonomous_workflow_tab
+    from screens.AutonomousWorkflowTab import show_autonomous_workflow_tab
     autonomous_tab_imported = True
 except ImportError as e:
     # Do NOT use st.error here, just set the flag and store the error message
