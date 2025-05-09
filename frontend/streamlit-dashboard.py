@@ -13,7 +13,7 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="DebugIQ Dashboard", layout="wide")
 st.title("🧠 DebugIQ Autonomous Debugging Dashboard")
 
-BACKEND_URL = os.getenv("BACKEND_URL", "https://autonomous-debug.onrender.com")
+BACKEND_URL = os.getenv("BACKEND_URL", https://debugiq-backend.onrender.com")
 
 @st.cache_data
 def fetch_config():
