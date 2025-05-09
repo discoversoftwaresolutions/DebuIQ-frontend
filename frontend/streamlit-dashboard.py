@@ -39,7 +39,3 @@ with tab4:
     show()  # This is the entry point from AutonomousWorkflowTab
 '''.strip()
 
-streamlit_dashboard_path = Path("/mnt/data/DebugIQ-frontend/frontend/streamlit-dashboard.py")
-streamlit_dashboard_path.write_text(streamlit_dashboard_code + "\n")
-
-streamlit_dashboard_path
