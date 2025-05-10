@@ -1,4 +1,4 @@
-# at the path DebuIQ-frontend/frontend/streamlit-dashboard.py
+# at the path DebugIQ-frontend/frontend/streamlit-dashboard.py
 
 import streamlit as st
 import requests
@@ -31,10 +31,10 @@ AUDIO_PROCESSING_THRESHOLD_SECONDS = 1 # Process audio every 1 second
 
 # --- Import the Autonomous Workflow Tab function ---
 # IMPORTANT: This uses a relative import to a sibling directory (.screens).
-# Make sure AutonomousWorkflowTab.py is at DebuIQ-frontend/.screens/AutonomousWorkflowTab.py
+# Make sure AutonomousWorkflowTab.py is at DebugIQ-frontend/.screens/AutonomousWorkflowTab.py
 # AND that you have empty __init__.py files in:
-# - DebuIQ-frontend/frontend/__init__.py
-# - DebuIQ-frontend/.screens/__init__.py
+# - DebugIQ-frontend/frontend/__init__.py
+# - DebugIQ-frontend/.screens/__init__.py
 
 autonomous_tab_imported = False
 show_autonomous_tab_import_error = None
