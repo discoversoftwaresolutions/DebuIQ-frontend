@@ -1,5 +1,5 @@
-# Save this code as AutonomousWorkflowTab.py at DebuIQ-frontend/.screens/AutonomousWorkflowTab.py
-# Ensure __init__.py files are in DebuIQ-frontend/frontend/ and DebuIQ-frontend/.screens/
+# Save this code as AutonomousWorkflowTab.py at DebugIQ-frontend/.screens/AutonomousWorkflowTab.py
+# Ensure __init__.py files are in DebugIQ-frontend/frontend/ and DebugIQ-frontend/.screens/
 
 import streamlit as st
 import requests
