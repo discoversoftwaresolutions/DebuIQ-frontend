@@ -31,7 +31,7 @@ AUDIO_PROCESSING_THRESHOLD_SECONDS = 1 # Process audio every 1 second
 
 # --- Import the Autonomous Workflow Tab function ---
 # IMPORTANT: This uses a relative import to a sibling directory (.screens).
-# Make sure AutonomousWorkflowTab.py is at DebugIQ-frontend/.screens/AutonomousWorkflowTab.py
+# Make sure AutonomousWorkflowTab.py is at DebugIQ-frontend/screens/AutonomousWorkflowTab.py
 # AND that you have empty __init__.py files in:
 # - DebugIQ-frontend/frontend/__init__.py
 # - DebugIQ-frontend/.screens/__init__.py
@@ -63,8 +63,8 @@ st.title("🧠 DebugIQ Autonomous Debugging Dashboard")
 if not autonomous_tab_imported and show_autonomous_tab_import_error:
     st.error(
         f"Could not import the Autonomous Workflow Orchestration tab: {show_autonomous_tab_import_error}. "
-        f"Make sure AutonomousWorkflowTab.py is at the correct path (DebuIQ-frontend/.screens/) "
-        f"and __init__.py files are in the 'frontend' and '.screens' directories."
+        f"Make sure AutonomousWorkflowTab.py is at the correct path (DebugIQ-frontend/ screens/) "
+        f"and __init__.py files are in the 'frontend' and ' screens' directories."
     )
 
 # --- Backend URL Configuration ---
