@@ -17,7 +17,7 @@ import json # Import json for file handling
 
 # --- Import the Autonomous Workflow Tab function ---
 # IMPORTANT: This uses a relative import to a sibling directory (.screens).
-# Make sure AutonomousWorkflowTab.py is at DebuIQ-frontend/.screens/AutonomousWorkflowTab.py
+# Make sure AutonomousWorkflowTab.py is at DebugIQ-frontend/.screens/AutonomousWorkflowTab.py
 # AND that you have empty __init__.py files in:
 # - DebugIQ-frontend/frontend/__init__.py
 # - DebugIQ-frontend/.screens/__init__.py
@@ -26,7 +26,7 @@ show_autonomous_tab_import_error = None # Variable to store potential import err
 show_autonomous_workflow_tab = None
 try:
     # Using relative import based on your structure: go up one level (..) then into .screens
-    # Ensure __init__.py files exist in both 'frontend' and '.screens' relative to DebuIQ-frontend/
+    # Ensure __init__.py files exist in both 'frontend' and '.screens' relative to DebugIQ-frontend/
     from screens.AutonomousWorkflowTab import show_autonomous_workflow_tab
     autonomous_tab_imported = True
 except ImportError as e:
