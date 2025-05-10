@@ -5,8 +5,8 @@ import requests
 import os
 import difflib
 import tempfile
-from streamlit\_ace import st\_ace
-from streamlit\_webrtc import webrtc\_streamer, AudioProcessorBase, ClientSettings, WebRtcMode
+from streamlit\\_ace import st\\_ace
+from streamlit\\_webrtc import webrtc\\_streamer, AudioProcessorBase, ClientSettings, WebRtcMode
 import numpy as np
 import av
 from difflib import HtmlDiff
